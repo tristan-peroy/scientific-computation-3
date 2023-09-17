@@ -1,0 +1,971 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy
+from scipy.integrate import solve_ivp
+import time
+#use scipy as needed
+#----------------------
+# Code for part 1
+#----------------------
+
+def ufield(r,th,u,levels=[8]):
+    """Displays velocity field stored in 2D array, u, at
+    one instant in time. Uses polar grid data stored in 1D arrays r and th.
+    Use/modify/ignore as needed.
+    """
+    Nth = th.size
+    Nr = r.size
+    thn = np.zeros(Nth+1)
+    thn[:-1]=th;thn[-1]=th[0]
+    un = np.zeros((Nr,Nth+1))
+    un[:,:-1] = u;un[:,-1]=un[:,0]
+    thg,rg = np.meshgrid(thn,r)
+    xg = rg*np.cos(thg)
+    yg = rg*np.sin(thg)
+    plt.figure()
+    plt.plot
+    plt.contourf(xg,yg,un,levels)
+    t=np.linspace(0,2*np.pi)
+    plt.plot(0.1*np.cos(t),0.1*np.sin(t),color="red", linestyle="dashed")
+    plt.plot(0.5*np.cos(t),0.5*np.sin(t),color="pink", linestyle="dashed")
+    plt.axis('equal')
+    return None
+
+def part1q1():
+    """
+    Question 1.1
+    Add input/output as needed
+    """
+
+    #-------------------------
+    #Load data
+    #t: times
+    #r: radial positions
+    #th: angular positions
+    #U: velocity field, u(r,th,t)
+    temp = np.load('data1.npz')
+    t = temp['t'];r = temp['r'];th = temp['theta'];U = temp['U']
+    temp = None
+    #-------------------------
+
+    #Add code here
+    print("shapes of r, th and t: ", r.shape,th.shape,t.shape)
+    print("shape of U: ", U.shape)
+    print("r =", r[8], "at index 8",", r =", r[40],"at index 40")
+    print("T", t[450-1])
+    
+    #figure to illustrate example of periodicity 3
+    plt.title("Plot 1: velocity at r=0.1, theta=0")
+    plt.ylabel("velocity")
+    plt.xlabel("time")
+    plt.plot(t,U[8,0,:])
+    plt.show()
+    
+    #fixing r=0.1, plotting the velocity for different thetas up to time T/3
+    plt.figure(figsize=(10,10))
+    plt.title("Plot 2: for r=0.1, velocity varying with time up to T/3, for various theta values")
+    plt.ylabel("velocity")
+    plt.xlabel("time")
+    for theta in [0,8,16,24]:
+        plt.plot(t[:len(t)//3],U[8,theta,:len(t)//3],label = "{}pi".format(theta/16))
+        plt.legend()
+    plt.show()
+    
+    #again with r=0.1, but with more theta values
+    plt.figure(figsize=(10,10))
+    plt.title("Plot 3: for r=0.1, velocity varying with time up to T/3, for more theta values")
+    plt.ylabel("velocity")
+    plt.xlabel("time")
+    for theta in [0,7,8,9,10,11,12,13,14,15]:
+        plt.plot(t[:len(t)//3],U[8,theta,:len(t)//3],label = "{}pi".format(theta/16))
+        plt.legend()
+    plt.show()
+    
+    #varying velocity with theta values for various times
+    plt.figure()
+    plt.title("Plot 4: for r=0.1, velocity as it changes over the angles for various times ")
+    plt.xlabel("theta")
+    plt.ylabel("velocity")
+    for i in range(1,len(t)//3):
+        plt.plot(th,U[8,:,i])
+    plt.show()
+    
+    #fixing r=0.5, plotting the velocity for different thetas up to time T/3
+    plt.figure(figsize=(10,10))
+    plt.title("Plot 5: for r=0.5, velocity varying with time up to T/3, for various theta values")
+    plt.ylabel("velocity")
+    plt.xlabel("time")
+    for theta in [0,8,16,24]:
+        plt.plot(t[:len(t)//3],U[40,theta,:len(t)//3],label = "{}pi".format(theta/16))
+        plt.legend()
+    plt.show()
+    
+    #again with r=0.5, but with more theta values
+    plt.figure(figsize=(10,10))
+    plt.title("Plot 6: for r=0.5, velocity varying with time up to T/3, for more theta values")
+    plt.ylabel("velocity")
+    plt.xlabel("time")
+    for theta in [0,7,8,9,10,11,12,13,14,15]:
+        plt.plot(t[:len(t)//3],U[40,theta,:len(t)//3],label = "{}pi".format(theta/16))
+        plt.legend()
+    plt.show()
+    
+    #varying velocity with theta values for various times
+    plt.figure()
+    plt.title("Plot 7: for r=0.5, velocity as it changes over the angles for various times ")
+    plt.xlabel("theta")
+    plt.ylabel("velocity")
+    for i in range(1,len(t)//3):
+        plt.plot(th,U[40,:,i])
+    plt.show()
+    
+    #the field in space at time 0 with r=0.1 in red and r=0.5 in pink as circles
+    plt.title("Plot 8: the field U at time 0 with circles added at r=0.1 and 0.5 ")
+    ufield(r,th,U[:,:,0],levels=10)
+    plt.show()
+    return None #modify as needed
+
+def part1q2C(U,inputs=()):
+    """
+    Question 1.2: Construct one or more arrays from U
+    that can be used by part1q2E
+    Input:
+        U: 3-D data array
+        inputs: can be used to provide other input as needed
+    Output:
+        arrays: a tuple containing the arrays produced from U
+    """
+    #load data
+    temp = np.load('data1.npz')
+    t = temp['t'];r = temp['r'];th = temp['theta'];U = temp['U']
+    temp = None
+
+    #Add code here
+    #initialise list to store u,s, W for svd and k
+    U_cut = U[:,:,:len(t)//3]
+    us=[]
+    ks=[]
+    ss=[]
+    Ws=[]
+    #iterate over the axis
+    for i in range(31):
+        Ui = U_cut[:,i,:]
+        ui,si,wi = np.linalg.svd(Ui)
+        ki = len(si[si>10e-14])
+        ks.append(ki)
+        si = si[:ki]
+        ui = ui[:,:ki]
+        wi = wi[:ki]
+        us.append(ui)
+        ss.append(si)
+        Ws.append(wi)
+    arrays = (us,ss,Ws,ks) #modify as needed
+    return arrays
+
+
+def part1q2E(arrays,inputs=()):
+    """
+    Question 1.2: Generate numpy array with same shape as U (see part1q2E above)
+    that has some meaningful correspondence to U
+    Input:
+        arrays: tuple generated by part1q2C
+        inputs: can be used to provide other input as needed
+    Output:
+        Unew: a numpy array with the same shape as U
+    """
+    
+    #Add code here
+    (us,ss,Ws,ks)=arrays
+    Unew=np.zeros((81,31,150))
+    for i in range(31):
+        for j in range(ks[i]): 
+            Unew[:,i,:] = Unew[:,i,:] + ss[i][j]*np.multiply.outer(us[i][:,j],Ws[i][j,:])
+    Unew = np.repeat(Unew,3,axis=2)
+    return Unew
+
+def part1q3():
+    """
+    Question 1.3
+    Add input/output as needed
+    """
+
+    #-------------------------
+    #Load data
+    #U: matrix with missing data
+    #R1,R2,R3: three "repaired" matrices
+    temp = np.load('data2.npz')
+    U = temp['U'];R1 = temp['R1'];R2=temp['R2'];R3=temp['R3']
+    temp = None
+    #-------------------------
+
+    #Add code here
+    print(U.shape)
+    locations = np.where(U==-1000)
+    print("fraction of data missing: ",len(locations[0])/(81*32))
+    print("ranks of R1,R2,R3: ",np.linalg.matrix_rank(R1),", ",np.linalg.matrix_rank(R2),", ",np.linalg.matrix_rank(R3))
+    U1,S1,VT1 = np.linalg.svd(R1)
+    print("singular values of R1: ",S1)
+    U2,S2,VT2 = np.linalg.svd(R2)
+    print("singular values of R2: ",S2)
+    U3,S3,VT3 = np.linalg.svd(R3)
+    print("singular values of R3: ",S3)
+    print("percentage of explained variance for the 5 singular values in S3: ",S3[:5]/np.sum(S3)*100)
+    plt.title("top 5 singular values of R3")
+    plt.xlabel("index of singular value")
+    plt.plot(range(1,6),S3[:5])
+    
+    def frobenius_norm_without_missing_values(A, B, missing_value=-1000):
+        mask = np.logical_and(A != missing_value, B != missing_value)
+        fnorm = np.linalg.norm((A-B)*mask, 'fro')
+        return fnorm
+    print("Frobenius norm of R1: ",frobenius_norm_without_missing_values(R1,U))
+    print("Frobenius norm of R2: ",frobenius_norm_without_missing_values(R2,U))
+    print("Frobenius norm of R3: ",frobenius_norm_without_missing_values(R3,U))
+
+    return None #modify as needed
+
+#----------------------
+# Code for part 2
+#----------------------
+def model1d(a=0.028,b=0.053,L = 5,Nx=256,Nt=8001,T=4000,display=False,method='RK45',bc=0):
+    """
+    Question 2.1
+    Simulate 2-species chemical reaction model
+
+    Input:
+    a,b: model parameters
+    L: domain size
+    Nx: Number of grid points in x
+    Nt: Number of time steps
+    T: Timespan for simulation is [0,T]
+    Display: Function creates contour plot of f when true
+    method: method used by solve_ivp
+    bc:
+        bc=0, homogeneous Neumann boundary conditions
+        bc =/= 0, periodic boundary conditions
+
+    Output:
+    f,g: Nt x Nx arrays containing solution
+    """
+
+    #generate grid
+    x = np.linspace(0,L,Nx)
+    dx = x[1]-x[0]
+    dx2inv = 1/dx**2
+
+    #model constants
+    d1 = 2e-5
+    d2 = 1e-5
+
+    def RHS(t,y):
+        """
+        RHS of model equations used by solve_ivp
+        homogeneous Neumann boundary conditions
+        """
+        n = y.size//2
+        f = y[:n]
+        g = y[n:]
+
+        #Compute 2nd derivatives
+        d2f = (f[2:]-2*f[1:-1]+f[:-2])*dx2inv
+        d2g = (g[2:]-2*g[1:-1]+g[:-2])*dx2inv
+
+        #Construct RHS
+        fg2 = f*g**2
+        dfdt = d1*d2f - fg2[1:-1] - f[1:-1]*a + a
+        dgdt = d2*d2g + fg2[1:-1] - (a+b)*g[1:-1]
+        dy = np.zeros(2*n)
+        dy[1:n-1] = dfdt
+        dy[n+1:-1] = dgdt
+
+        #Enforce boundary conditions
+        a1,a2 = 4/3,-1/3
+        dy[0] = a1*dy[1]+a2*dy[2]
+        dy[n-1] = a1*dy[n-2]+a2*dy[n-3]
+        dy[n] = a1*dy[n+1]+a2*dy[n+2]
+        dy[-1] = a1*dy[-2]+a2*dy[-3]
+
+        return dy
+
+    def RHS2(t,y):
+        """
+        RHS of model equations used by solve_ivp,
+        periodic boundary conditions
+        """
+        n = y.size//2
+        f = y[:n]
+        g = y[n:]
+
+        #Compute 2nd derivatives
+        d2f = np.zeros_like(f)
+        d2g = np.zeros_like(g)
+        d2f[1:-1] = (f[2:]-2*f[1:-1]+f[:-2])*dx2inv
+        d2g[1:-1] = (g[2:]-2*g[1:-1]+g[:-2])*dx2inv
+
+        d2f[0] = (f[1]-2*f[0]+f[-1])*dx2inv
+        d2g[0] = (g[1]-2*g[0]+g[-1])*dx2inv
+        d2f[-1] = d2f[0]
+        d2g[-1] = d2g[0]
+
+        fg2 = f*g**2
+        dfdt = d1*d2f - fg2 - f*a + b
+        dgdt = d2*d2g + fg2 - (a+b)*g
+        dy = np.zeros(2*n)
+        dy[:n] = dfdt
+        dy[n:] = dgdt
+        return dy
+
+    #initial condition
+    d = 1-4*(a+b)**2/a
+    f0 = 0.5*(1+np.sqrt(d))
+    g0 = 0.5*a/(a+b)*(1-np.sqrt(d))
+    y0 = np.zeros(2*Nx)
+    y0[:Nx] = f0 +0.1*np.cos(4*np.pi/L*x) + 1*np.cos(8*np.pi/L*x)
+    y0[Nx:] = g0 +0.1*np.cos(2*np.pi/L*x) + 1*np.cos(6*np.pi/L*x)
+
+    t = np.linspace(0,T,Nt)
+
+    #compute solution
+    print("running simulation...")
+    if bc==0:
+        out = solve_ivp(RHS,[t[0],t[-1]],y0,t_eval = t,rtol=1e-6,method=method)
+    else:
+        out = solve_ivp(RHS2,[t[0],t[-1]],y0,t_eval = t,rtol=1e-6,method=method)
+
+    print(out.message)
+    y =out.y
+    f = y[:Nx,:]
+    g = y[Nx:,:]
+    print("finished simulation")
+    if display:
+        plt.figure()
+        plt.contourf(x,t,f.T)
+        plt.xlabel('x')
+        plt.ylabel('t')
+        plt.title('Contours of f')
+        plt.colorbar()
+
+    return t,x,f,g
+
+def part2q1analyze():
+    """
+    Question 2.1
+    Add input/output as needed
+    """
+    t,x,f,g=model1d(a=0.028,b=0.053,L = 5,Nx=256,Nt=10000,T=30000,display=True,method='RK45',bc=0)
+    plt.show()
+    #graph to visualise initial transient at space index 0
+    plt.title("Plot 2: f at space index 0 for time up to T=30000")
+    plt.plot(t[:2000],f[0][:2000])
+    plt.xlabel("Plot 2: time indices")
+    plt.ylabel("f")
+    plt.show()
+    
+    #graph to visualise initial transient at space index 200
+    plt.title("Plot 3: f at space index 200 for time up to T=30000")
+    plt.plot(t[:2000],f[200][:2000])
+    plt.xlabel("time indices")
+    plt.ylabel("f")
+    plt.show()
+    
+    #remove the transient
+    t = t[400:]
+    f = f[:,400:]
+    g = g[:,400:]
+    
+    #for a given space plot how f changes against g in time
+    plt.title("Plot 4: f at space index 0 for time up to T=30000")
+    plt.plot(t,f[0],label="f")
+    plt.plot(t,g[0],label="g")
+    plt.xlabel("time indices")
+    plt.ylabel("f and g")
+    plt.legend()
+    plt.show()
+    
+    #fcloser look at fluctuation behaviour of f
+    plt.title("Plot 5: f at space index 255 for time up to T=30000")
+    plt.plot(t[:2000],f[255][:2000])
+    plt.xlabel("time indices")
+    plt.ylabel("f")
+    plt.show()
+    
+    #show initial symmetry in space
+    plt.title("PLot 6: fixed a fixed time 0, f over the space")
+    plt.xlabel("space indices")
+    plt.ylabel("f")
+    plt.plot(x,f[:,0])
+    plt.show()
+    
+    #symmetry in space breaks down at around 15000 T
+    plt.title("PLot 7: over time, f 5 equally spread points in space")
+    plt.xlabel("time")
+    plt.ylabel("f")
+    for i in range(0,255,255//5):
+        plt.plot(t,f[i],label=i/255*5)
+        plt.legend()
+    plt.show()
+        
+    #show symmetry breaking in space at large time
+    plt.title("PLot 8: fixed a fixed time 0, f over the space")
+    plt.xlabel("space indices")
+    plt.ylabel("f")
+    plt.plot(x,f[:,8000])
+    plt.show()
+    
+    
+    time = [0, 100, 200, 400, 600]
+    fig = plt.figure(figsize=(20,5))
+    for i,t in enumerate(time):
+        plt.subplot(1,5,i+1)
+        plt.plot(x, f[:, t], label='f')
+        plt.plot(x, g[:, t], label='g')
+        plt.legend()
+    fig.suptitle("Plot 9: f in the space at several early times")
+    plt.show()
+    
+    #welch's method
+    from scipy.signal import welch
+    from scipy.spatial.distance import pdist
+    t,x,f,g = model1d(a=0.028,b=0.053,L = 5,Nx=256,Nt=8001,T=5000,display=False,method='RK45',bc=0)
+    f = f[:, 400:]
+    g = g[:, 400:]
+    t = t[400:]
+    fxx, Pxx = welch(f[196, :], fs=1/(t[1]-t[0]))
+    f_max = fxx[Pxx==Pxx.max()]
+    tau = 1/(5*f_max)
+    Del = int(tau/(t[1]-t[0]))
+    f_delay = np.zeros((t.shape[0] - 4*Del, 5))
+    for i in range(f_delay.shape[0]):
+        f_delay[i, 0] = f[196, i + 4*Del]
+        f_delay[i, 1] = f[196, i + 3*Del]
+        f_delay[i, 2] = f[196, i + 2*Del]
+        f_delay[i, 3] = f[196, i + Del] 
+        f_delay[i, 4] = f[196, i]
+    def corr_sum(A, thresh):
+        m = A.shape[0]
+        D = pdist(A)
+        D = D[D < thresh]
+        return D.shape[0]/(m*(m-1))
+    t_thresh = np.linspace(0.01, 2, 20)
+    thresh = np.linspace(0.01, 0.1, 30)
+    corr_sums = []
+    for thr in t_thresh:
+        corr_sums.append(corr_sum(f_delay, thr))
+    fitted = []
+    for th in thresh:
+        fitted.append(corr_sum(f_delay, th))
+    
+    #plot of the correlation sum against epsilon
+    p1, p0 = np.polyfit(np.log(thresh) , np.log(fitted), 1)
+    plt.loglog(t_thresh, corr_sums)
+    plt.title("Plot 10: Fitted log of correlation sum against log of thresholds used at space index 196")
+    plt.plot(thresh, np.exp(p0)*thresh**p1, 'x', label=f"slope={p1:.3f}")
+    plt.grid()
+    plt.legend()
+    plt.show()
+    
+    t,x,f,g = model1d(a=0.028,b=0.053,L = 5,Nx=256,Nt=8001,T=5000,display=False,method='RK45',bc=0)
+    f = f[:, 400:]
+    g = g[:, 400:]
+    t = t[400:]
+    fxx, Pxx = welch(f[128, :], fs=1/(t[1]-t[0]))
+    f_max = fxx[Pxx==Pxx.max()]
+    tau = 1/(5*f_max)
+    Del = int(tau/(t[1]-t[0]))
+    f_delay = np.zeros((t.shape[0] - 4*Del, 5))
+    for i in range(f_delay.shape[0]):
+        f_delay[i, 0] = f[128, i + 4*Del]
+        f_delay[i, 1] = f[128, i + 3*Del]
+        f_delay[i, 2] = f[128, i + 2*Del]
+        f_delay[i, 3] = f[128, i + Del] 
+        f_delay[i, 4] = f[128, i]
+    def corr_sum(A, thresh):
+        m = A.shape[0]
+        D = pdist(A)
+        D = D[D < thresh]
+        return D.shape[0]/(m*(m-1))
+    t_thresh = np.linspace(0.01, 2, 20)
+    thresh = np.linspace(0.01, 0.1, 30)
+    corr_sums = []
+    for thr in t_thresh:
+        corr_sums.append(corr_sum(f_delay, thr))
+    fitted = []
+    for th in thresh:
+        fitted.append(corr_sum(f_delay, th))
+    
+    #plot of the correlation sum against epsilon
+    p1, p0 = np.polyfit(np.log(thresh) , np.log(fitted), 1)
+    plt.loglog(t_thresh, corr_sums)
+    plt.title("Plot 11: Fitted log of correlation sum against log of thresholds used at space index 128")
+    plt.plot(thresh, np.exp(p0)*thresh**p1, 'x', label=f"slope={p1:.3f}")
+    plt.grid()
+    plt.legend()
+    plt.show()
+    return None #modify as needed
+
+def part2q2(f,N,L):
+    """
+    Compute d2f/dx2 and d2f/dy2 of N x N array f on square equispaced grid
+    with N points in each direction.
+    f[i,j] corresponds to data at x[j] and y[i]
+
+    Output:
+    fxx: N x N numpy array; 2nd-derivative with respect to x computed using Fourier transforms
+    assume underlying function is periodic in x, f(x+L)=f(x)
+
+    fyy: N x N numpy array; 2nd-derivative with respect to y computed using implicit Finite
+    difference scheme
+    """
+
+    #Generate grid (x,y are not explicitly needed here)
+    x = np.linspace(0,L,N+1)
+    x = x[:-1]
+    y = x.copy()
+    h = x[1]-x[0]
+    h2inv = 1/h**2
+    xg,yg = np.meshgrid(x,y)
+
+
+    def diffx(f, L):
+        """
+        Question 2.2)
+        Input:
+            f: real array whose 2nd derivative will be computed along each row
+            L: domain size
+        Output:
+            d2f: (real) second derivative of f computed with discrete Fourier transforms
+        """
+        F = np.fft.fft(f, axis=1)
+        kx = 2*np.pi*np.fft.fftfreq(f.shape[1], d=L/f.shape[1])
+        kx2 = kx**2
+        F *= -kx2
+        d2f = np.real(np.fft.ifft(F, axis=1))
+        return d2f
+
+    def diffy(f,h2inv):
+        """
+        Question 2.2)
+        Input:
+            f: real array whose 2nd derivative will be computed along each column
+            h2inv: 1/h^2 where h is the grid spacing
+        Output:
+            d2f: second derivative of f computed with implicit FD scheme
+        """
+        #coefficients for interior points
+        alpha = 2/11
+        a = 12/11
+        b = 3/11
+
+        #coefficients for near-boundary points
+        alpha_bc = 10
+        a_bc,b_bc,c_bc,d_bc,e_bc = (145/12,-76/3,29/2,-4/3,1/12)
+
+        d2f = np.zeros_like(f) #modify as needed
+
+        #add code here
+        from scipy.sparse import  diags
+        N = f.shape[0]
+        
+        #define sparse matrix to create RHS
+        zmin4 = np.zeros(N-4)
+        zmin4[-2]=e_bc
+        zmin4[-1]=e_bc
+        zmin3=np.zeros(N-3)
+        zmin3[-2]=d_bc
+        zmin3[-1]=d_bc
+        zmin2=np.ones(N-2)*b/4
+        zmin2[-2]=c_bc
+        zmin2[-1]=c_bc
+        zmin1=np.ones(N-1)*a
+        zmin1[0]=0
+        zmin1[-2]=b_bc
+        zmin1[-1]=b_bc
+        z=np.ones(N)*(-2*a-b/2)
+        z[0]=a_bc
+        z[1]=a_bc
+        z[-2]=a_bc
+        z[-1]=a_bc
+        zplus1= np.ones(N-1)*a
+        zplus1[0]=b_bc
+        zplus1[1]=b_bc
+        zplus1[-1]=0
+        zplus2=np.ones(N-2)*b/4
+        zplus2[0]=c_bc
+        zplus2[1]=c_bc
+        zplus3=np.zeros(N-3)
+        zplus3[0]=d_bc
+        zplus3[1]=d_bc
+        zplus4=np.zeros(N-4)
+        zplus4[0]=e_bc
+        zplus4[1]=e_bc
+        
+        B = scipy.sparse.diags([zmin4,zmin3,zmin2,zmin1,z,zplus1,zplus2,zplus3,zplus4],[-4,-3,-2,-1,0,1,2,3,4])/(h**2)
+        #create b as RHS
+        b=B.dot(f)
+        
+        #create sparse matrix for LHS to put in solve banded method
+        s=np.ones(N)
+        smin1 = np.ones(N)*alpha
+        smin1[0] = 0
+        smin1[-2] = alpha_bc
+        smin1[-3]=alpha_bc
+        smin1[-1]=0
+        splus1 = np.ones(N)*alpha
+        splus1[0]=0
+        splus1[1] = alpha_bc
+        splus1[2] = alpha_bc
+        splus1[-1] = 0
+        A = np.vstack((splus1,s,smin1))
+        
+        #use solved banded
+        d2f = scipy.linalg.solve_banded((1,1),A,b)
+        
+        return  d2f #modify as needed
+
+    fxx = diffx(f,L)
+    fyy = diffy(f,h2inv)
+
+    return x,y,fxx,fyy
+
+def part2q2analyze():
+    """
+    Question 2.2(b)
+    Add input/output as needed
+
+    """
+    #wavenumber analysis
+    alpha = 2/11
+    a = 12/11
+    b = 3/11
+    x = np.linspace(0, 4, 10000)
+    exact_wn = x**2
+    centered_wn = 2 - 2*np.cos(x)
+    implicit_wn = (a*(-2*np.cos(x) + 2) + b/4*(-2*np.cos(2*x) + 2))/(2*alpha*np.cos(x) + 1)
+    
+    #plot the wavenumber analysis plots
+    plt.plot(x, exact_wn, label='Exact Version')
+    plt.plot(x, centered_wn, label='Centered Version')
+    plt.plot(x, implicit_wn, label='Implicit Version')
+    plt.xlabel('kh')
+    plt.ylabel('comparable functions')
+    plt.title('Plot 1: Wavenumber of various methods versus the exact number')
+    plt.grid()
+    plt.legend()
+    plt.ylim(0, 10)
+    plt.show()
+    
+    #plot of the % error for centered scheme
+    x = np.linspace(0, 1, 10000)
+    exact_wn = x**2
+    centered_wn = 2 - 2*np.cos(x)
+    plt.title("Plot 2: centered error vs. kh value")
+    plt.xlabel("kh")
+    plt.ylabel("% error")
+    plt.plot(x,abs((centered_wn-exact_wn)/exact_wn) *100)
+    plt.show()
+    print(2*np.pi/0.3)
+    
+    #plot of % error for implicit scheme
+    plt.title("PLot 3: implicit error vs. kh value")
+    plt.xlabel("kh")
+    plt.ylabel("% error")
+    x = np.linspace(0, 2, 10000)
+    exact_wn = x**2
+    implicit_wn = (a*(-2*np.cos(x) + 2) + b/4*(-2*np.cos(2*x) + 2))/(2*alpha*np.cos(x) + 1)
+    plt.plot(x,abs((implicit_wn-exact_wn)/exact_wn) *100,label="error for implicit")
+    
+    #implement centred finite differences for second derivative wrt x and y
+    def centered_x(f, h):
+        m, n = f.shape
+        d2fdx2 = np.zeros((m, n))
+        for i in range(1, n-1):
+            d2fdx2[:, i] = (f[:, i+1] - 2*f[:, i] + f[:, i-1])/ (h**2)
+        d2fdx2[:, 0] = (f[:, 2] - 2*f[:, 1] + f[:, 0]) / (h**2)
+        d2fdx2[:, n-1] = (f[:, -3] - 2*f[:, -2] + f[:, -1]) / (h**2)
+        return d2fdx2
+
+    def centered_y(f, h):
+        m, n = f.shape
+        d2fdy2 = np.zeros((m, n))
+        for i in range(1, m-1):
+            d2fdy2[i, :] = (f[i+1, :] - 2*f[i, :] + f[i-1, :])/ (h**2) 
+        d2fdy2[0, :] = (f[2, :] - 2*f[1, :] + f[0, :]) / (h**2)
+        d2fdy2[m-1:, :] = (f[-3, :] - 2*f[-2, :] + f[-1, :]) / (h**2)
+        return d2fdy2
+    
+    #function and its exact second derivatives
+    def fexact(x,y,L):
+        return np.sin(2*np.pi/L*x) * np.sin(2*np.pi/L*y)
+
+    def fexact_xx(x,y, L):
+        return np.sin(2*np.pi/L*y) * (2*np.pi/L)**2 * -np.sin(2*np.pi/L*x)
+
+    def fexact_yy(x, y, L):
+        return np.sin(2*np.pi/L*x) * (2*np.pi/L)**2 * -np.sin(2*np.pi/L*y)
+    
+    #mse test of accuracy
+    def MSE(y_test, y_pred):
+        mse = np.mean((y_test - y_pred)**2)
+        return mse
+    def grid(L, N):
+        x = np.linspace(0, L, N+1)
+        y = np.linspace(0, L, N+1)
+        xg, yg = np.meshgrid(x, y)
+        hx = x[1] - x[0]
+        hy = y[1] - y[0]
+        return xg, yg, hx, hy
+    def diffy(f,h2inv):
+        """
+        Question 2.2)
+        Input:
+            f: real array whose 2nd derivative will be computed along each column
+            h2inv: 1/h^2 where h is the grid spacing
+        Output:
+            d2f: second derivative of f computed with implicit FD scheme
+        """
+        #coefficients for interior points
+        alpha = 2/11
+        a = 12/11
+        b = 3/11
+
+        #coefficients for near-boundary points
+        alpha_bc = 10
+        a_bc,b_bc,c_bc,d_bc,e_bc = (145/12,-76/3,29/2,-4/3,1/12)
+
+        d2f = np.zeros_like(f) #modify as needed
+
+        #add code here
+        from scipy.sparse import  diags
+        N = f.shape[0]
+        
+        #define sparse matrix to create RHS
+        zmin4 = np.zeros(N-4)
+        zmin4[-2]=e_bc
+        zmin4[-1]=e_bc
+        zmin3=np.zeros(N-3)
+        zmin3[-2]=d_bc
+        zmin3[-1]=d_bc
+        zmin2=np.ones(N-2)*b/4
+        zmin2[-2]=c_bc
+        zmin2[-1]=c_bc
+        zmin1=np.ones(N-1)*a
+        zmin1[0]=0
+        zmin1[-2]=b_bc
+        zmin1[-1]=b_bc
+        z=np.ones(N)*(-2*a-b/2)
+        z[0]=a_bc
+        z[1]=a_bc
+        z[-2]=a_bc
+        z[-1]=a_bc
+        zplus1= np.ones(N-1)*a
+        zplus1[0]=b_bc
+        zplus1[1]=b_bc
+        zplus1[-1]=0
+        zplus2=np.ones(N-2)*b/4
+        zplus2[0]=c_bc
+        zplus2[1]=c_bc
+        zplus3=np.zeros(N-3)
+        zplus3[0]=d_bc
+        zplus3[1]=d_bc
+        zplus4=np.zeros(N-4)
+        zplus4[0]=e_bc
+        zplus4[1]=e_bc
+        
+        B = scipy.sparse.diags([zmin4,zmin3,zmin2,zmin1,z,zplus1,zplus2,zplus3,zplus4],[-4,-3,-2,-1,0,1,2,3,4])*h2inv
+        #create b as RHS
+        b=B.dot(f)
+        
+        #create sparse matrix for LHS to put in solve banded method
+        s=np.ones(N)
+        smin1 = np.ones(N)*alpha
+        smin1[0] = 0
+        smin1[-2] = alpha_bc
+        smin1[-3]=alpha_bc
+        smin1[-1]=0
+        splus1 = np.ones(N)*alpha
+        splus1[0]=0
+        splus1[1] = alpha_bc
+        splus1[2] = alpha_bc
+        splus1[-1] = 0
+        A = np.vstack((splus1,s,smin1))
+        
+        #use solved banded
+        d2f = scipy.linalg.solve_banded((1,1),A,b)
+        
+        return  d2f #modify as needed
+    
+    def diffx(f, L):
+        """
+        Question 2.2)
+        Input:
+            f: real array whose 2nd derivative will be computed along each row
+            L: domain size
+        Output:
+            d2f: (real) second derivative of f computed with discrete Fourier transforms
+        """
+        F = np.fft.fft(f, axis=1)
+        kx = 2*np.pi*np.fft.fftfreq(f.shape[1], d=L/f.shape[1])
+        kx2 = kx**2
+        F *= -kx2
+        d2f = np.real(np.fft.ifft(F, axis=1))
+        return d2f
+    
+    xg,yg,hx,hy = grid(5,1000)
+    f = fexact(xg,yg,5)
+    h2inv = 1/hy**2
+    d2fy = diffy(f,h2inv)
+    
+    #graph of how the implicit method fit as well as centered
+    plt.figure()
+    plt.plot(yg[:,100],d2fy[:,100],"x-")
+    plt.plot(yg[:,100],fexact_yy(xg,yg,5)[:,100])
+    plt.title("Plot 4: df2dy2 for implicit")
+    plt.xlabel('x')
+    plt.ylabel('df2/dy2')
+    plt.legend(('computed','exact'))
+    plt.show()
+    
+    d2fyc = centered_y(f, hy)
+    plt.figure()
+    plt.plot(yg[:,100],d2fyc[:,100],"x-")
+    plt.plot(yg[:,100],fexact_yy(xg,yg,5)[:,100])
+    plt.title("Plot 5: df2dy2 for centred")
+    plt.xlabel('y')
+    plt.ylabel('df2/dy2')
+    plt.legend(('computed','exact'))
+    plt.show()
+    
+    Ns = [100,150,200,250]
+    errors_implicit =  []
+    errors_centred = []
+    for n in Ns:
+        xg,yg,hx,hy = grid(5,n)
+        h2inv = 1/hy**2
+        f = fexact(xg,yg,5)
+        d2fy = diffy(f,h2inv)
+        d2fyc = centered_y(f, hy)
+        error_implicit = MSE(fexact_yy(xg,yg,5)[:,5], d2fy[:,5])
+        error_centred = MSE(fexact_yy(xg,yg,5)[:,5], d2fyc[:,5])
+        errors_implicit.append(error_implicit)
+        errors_centred.append(error_centred)
+        
+    plt.title("errors")
+    plt.xlabel("N")
+    plt.ylabel("MSE")
+    plt.plot(Ns,errors_implicit,label="implicit method error")
+    plt.plot(Ns,errors_centred,label="centred method error")
+    plt.title("Plot 6: graph of MSE of implicit and centred methods vs the exact values")
+    plt.legend()
+    plt.show()
+    
+    Ns = [10,100,1000,10000]
+    times_implicit = []
+    times_center = []
+    for n in Ns:
+        xg,yg,hx,hy = grid(5,n)
+        h2inv = 1/hy**2
+        f = fexact(xg,yg,5)
+        t1 = time.time()
+        d2fy = diffy(f,h2inv)
+        t2 = time.time()
+        time_implicit = t2-t1
+        t3 = time.time()
+        d2fyc = centered_y(f, hy)
+        t4 = time.time()
+        time_center = t4-t3
+        times_implicit.append(time_implicit)
+        times_center.append(time_center)
+        
+    plt.title("times")
+    plt.plot(Ns,times_implicit,label="implicit")
+    plt.plot(Ns,times_center,label="centered finite differences")
+    plt.title("Plot 7: relative speeds of the implicit and centered methods with increasing N")
+    plt.legend()
+    plt.show()
+    
+    def fexact(x,y,L):
+        return np.sin(100*np.pi/L*x) * np.sin(100*np.pi/L*y)
+
+    def fexact_xx(x,y, L):
+        return np.sin(100*np.pi/L*y) * (100*np.pi/L)**2 * -np.sin(100*np.pi/L*x)
+
+    def fexact_yy(x, y, L):
+        return np.sin(100*np.pi/L*x) * (100*np.pi/L)**2 * -np.sin(100*np.pi/L*y)
+    
+    xg,yg,hx,hy = grid(5,250)
+    h2inv = 1/hy**2
+    f=fexact(xg,yg,5)
+    d2fy = diffy(f,h2inv)
+    
+    plt.figure()
+    plt.plot(yg[:100,50],d2fy[:100,50],"x-")
+    plt.plot(yg[:100,50],fexact_yy(xg,yg,5)[:100,50])
+    plt.title("Plot 8: df2dy2 for implicit")
+    plt.xlabel('y')
+    plt.ylabel('df2/dy2')
+    plt.legend(('computed','exact'))
+    plt.show()
+    
+    d2fyc = centered_y(f, hy)
+    plt.figure()
+    plt.plot(yg[:100,50],d2fyc[:100,50],"x-")
+    plt.plot(yg[:100,50],fexact_yy(xg,yg,5)[:100,50])
+    plt.title("Plot 9: df2dy2 for centred")
+    plt.xlabel('y')
+    plt.ylabel('df2/dy2')
+    plt.legend(('computed','exact'))
+    plt.show()
+    
+    L=5
+    N=1000
+    x = np.linspace(0,L,N+1)
+    x = x[:-1]
+    y = x.copy()
+    h = x[1]-x[0]
+    h2inv = 1/h**2
+    xg,yg = np.meshgrid(x,y)
+    def fexact(x,y,L):
+        return np.sin(2*np.pi/L*x) * np.sin(2*np.pi/L*y)
+
+    def fexact_xx(x,y, L):
+        return np.sin(2*np.pi/L*y) * (2*np.pi/L)**2 * -np.sin(2*np.pi/L*x)
+
+    def fexact_yy(x, y, L):
+        return np.sin(2*np.pi/L*x) * (2*np.pi/L)**2 * -np.sin(2*np.pi/L*y)
+    
+    f=fexact(xg,yg,5)
+    d2fx = diffx(f,5)
+    
+    plt.figure()
+    plt.title("Plot 10: df2dx2 for DFT")
+    plt.plot(xg[100],fexact_xx(xg,yg,5)[100],"x--")
+    plt.plot(xg[100],d2fx[100])
+    plt.xlabel('x')
+    plt.ylabel('df2/dx2')
+    plt.legend(('computed','exact'))
+    
+    Ns = [50,100,150,200,250,300]
+    errors_dft =  []
+    errors_centred = []
+    for n in Ns:
+        x = np.linspace(0,L,n+1)
+        x = x[:-1]
+        y = x.copy()
+        h = x[1]-x[0]
+        xg,yg = np.meshgrid(x,y)
+        f = fexact(xg,yg,5)
+        d2fx = diffx(f,5)
+        d2fxc = centered_x(f, h)
+        error_dft = MSE(fexact_xx(xg,yg,5)[:,20], d2fx[:,20])
+        error_centred = MSE(fexact_xx(xg,yg,5)[:,20], d2fxc[:,20])
+        errors_dft.append(error_dft)
+        errors_centred.append(error_centred)
+        
+    return None #modify as needed
+
+#----------------------
+if __name__=='__main__':
+    pass
+    #if you would like to call your functions, please call them from within
+    #this if block
+    
